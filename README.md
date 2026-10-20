@@ -37,9 +37,7 @@ This is GoScore v1.0.0, the initial release. Rehearse with practice matches befo
 
 Open the match overlay in a browser with `?edit=1` appended to its URL (for example, `/overlay/MATCH_ID?edit=1`). Use **Arrange overlay layout** on the Production page to open it directly. Drag a graphic to move it and drag its blue bottom-right handle to resize it. **Reset layout** removes saved positions; **Done** returns to the normal overlay. Cricket and football layouts are saved separately in the browser profile that is rendering the overlay. If you want to edit from OBS itself, open the editor URL in an OBS Browser Source using the same profile.
 
-## Cricket slideshow
-
-In Cricket Production, enable **Cricket slideshow panel**, choose the rotation interval, and copy its URL into a separate OBS Browser Source. The slideshow rotates only graphics enabled in the panel controls; the scorebug and event pop-ups remain independent. Keep the slideshow disabled if you prefer to show panels manually.
+NOTE IMPORTANT: This feature is currently very buggy! Please just use the individual panel links and copy-paste them into your browser source on OBS. We will get around to fixing that in a hotfix soon. Thank you!
 
 ## Browser Source connections
 
