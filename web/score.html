@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scorer · GoScore</title><link rel="stylesheet" href="/static/css/app.css"><link rel="stylesheet" href="/static/css/icons.css"></head>
+<body>
+<div class="top"><a class="btn sm" href="/"><img class="ui-icon" src="/static/assets/icons/list.svg" alt="">Matches</a><span class="title" id="title">…</span><span id="conn" class="conn warn">● …</span><span class="sp"></span>
+<a class="btn sm" id="lControl" target="_blank"><img class="ui-icon" src="/static/assets/icons/monitor.svg" alt="">Production</a><a class="btn sm" id="lCard" target="_blank"><img class="ui-icon" src="/static/assets/icons/scorecard.svg" alt="">Scorecard</a><a class="btn sm" id="lOv" target="_blank"><img class="ui-icon" src="/static/assets/icons/monitor.svg" alt="">Overlay</a><a class="btn sm" id="lSetup"><img class="ui-icon" src="/static/assets/icons/settings.svg" alt="">Setup</a></div>
+<div class="wrap">
+ <div id="strip" class="card strip"></div>
+ <div id="alerts"></div>
+ <div class="grid" style="grid-template-columns:minmax(300px,1fr) minmax(380px,1.3fr);margin-top:12px">
+  <div class="grid" id="left" style="align-content:start"></div>
+  <div id="pad"></div>
+ </div>
+ <div class="tabs" id="tabs"></div>
+ <div id="tabbody"></div>
+</div>
+<script type="module" src="/static/js/boot.js" data-page="score"></script></body></html>

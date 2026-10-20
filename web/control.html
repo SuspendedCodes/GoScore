@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Production · GoScore</title><link rel="stylesheet" href="/static/css/app.css"><link rel="stylesheet" href="/static/css/control.css"><link rel="stylesheet" href="/static/css/icons.css"></head>
+<body>
+<div class="top"><a class="btn sm" href="/"><img class="ui-icon" src="/static/assets/icons/list.svg" alt="">Matches</a><span class="title" id="title">Production</span><span id="conn" class="conn warn">● …</span><span id="liveTag" class="conn"></span><span class="sp"></span>
+<a class="btn sm" id="lScore"><img class="ui-icon" src="/static/assets/icons/cricket.svg" alt="">Scorer</a><a class="btn sm" id="lOv" target="_blank"><img class="ui-icon" src="/static/assets/icons/monitor.svg" alt="">Overlay URL</a></div>
+<div class="wrap">
+ <div class="cgrid">
+  <section class="card" id="obsBox"></section>
+  <section class="card" id="gfxBox"></section>
+ </div>
+ <section class="card" style="margin-top:12px"><div class="row"><b>Overlay preview</b><button class="btn sm" id="prevBtn">Show preview</button><span class="mut">what the overlay browser source shows right now (published state)</span></div><div id="prevWrap"><iframe id="prev" title="overlay preview"></iframe></div></section>
+</div>
+<script type="module" src="/static/js/boot.js" data-page="control"></script></body></html>
