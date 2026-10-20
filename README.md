@@ -25,10 +25,6 @@ Use `live` instead of a match ID to follow the match marked as live. In OBS, add
 
 Match data, backups, uploaded team logos and settings are saved in `data/`. OBS output files are written to `output/`. Keep these folders when updating the application and back them up before installing a new release.
 
-## Cricket scoring notes
-
-Byes and leg-byes are extras, not runs credited to the batter. The target panel can show runs required, wickets needed by the bowling side, or both. The over-by-over panel shows the last 10 overs by default; enter a starting over in Production to show that over and the next nine.
-
 ## Tests
 
 Run the tests from the source folder with `python -m unittest discover -s tests`.
