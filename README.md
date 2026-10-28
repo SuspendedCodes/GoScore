@@ -4,7 +4,7 @@ Cricket scoring, football match management and OBS graphics in one local web app
 
 ## Windows release
 
-The repository includes the desktop launcher source and PyInstaller build specification. GitHub Actions runs the regression tests and builds a Windows `GoScore.exe` on a Windows runner. Download the `GoScore-Windows-x64` artifact from a successful workflow run, or download `GoScore.exe` from a GitHub Release created from a `v*` tag. The app opens a small GoScore window with Start, Open, and Stop controls, without an application console window. Match data and OBS output files are stored beside the executable in `data/` and `output/`.
+Download GoScore from the downloads (releases) page or:
 
 To build locally on Windows, install Python 3.10 or newer and double-click `BUILD_WINDOWS_EXE.bat`. When it finishes, run `dist\GoScore.exe`.
 
