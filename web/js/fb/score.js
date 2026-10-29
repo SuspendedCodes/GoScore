@@ -297,9 +297,9 @@ function renderTabs() {
   if (tab === 'lineups') renderLineups(B); else if (tab === 'events') renderEvents(B); else if (tab === 'override') renderOverride(B); else renderMatch(B);
 }
 function plRow(p, tid) {
-  const marks = [p.yellows ? h('span', { class: 'cardi y' }) : null, p.red ? h('span', { class: 'cardi r' }) : null, p.goals ? 'Football' + (p.goals > 1 ? '×' + p.goals : '') : null, p.status === 'off' ? '↓' : null, p.status === 'on' && p.replacing ? '↑' : null];
+  const marks = [p.yellows ? h('span', { class: 'cardi y' }) : null, p.red ? h('span', { class: 'cardi r' }) : null, p.goals ? 'Goal' + (p.goals > 1 ? '×' + p.goals : '') : null, p.status === 'off' ? '↓' : null, p.status === 'on' && p.replacing ? '↑' : null];
   return h('div', { class: 'pl' + (['off', 'sent_off', 'bench_sent_off'].includes(p.status) ? ' off' : '') }, h('span', { class: 'n' }, p.number ?? ''), h('span', { class: 'p' }, p.pos), h('span', { class: 'nm' }, p.name + (p.captain ? ' (C)' : ''), ' ', ...marks),
-    p.status === 'on' ? h('span', { class: 'row' }, h('button', { class: 'btn sm', title: 'Goal', onclick: () => goalModal(tid, { player: p.id }) }, 'Football'), h('button', { class: 'btn sm', title: 'Yellow', onclick: () => cardModal(tid, 'yellow', { player: p.id }) }, 'Yellow card'), h('button', { class: 'btn sm', title: 'Red', onclick: () => cardModal(tid, 'red', { player: p.id }) }, 'Red card'), h('button', { class: 'btn sm', title: 'Substitute off', onclick: () => subModal(tid, { off: p.id }) }, '⇄'))
+    p.status === 'on' ? h('span', { class: 'row' }, h('button', { class: 'btn sm', title: 'Goal', onclick: () => goalModal(tid, { player: p.id }) }, 'Goal'), h('button', { class: 'btn sm', title: 'Yellow', onclick: () => cardModal(tid, 'yellow', { player: p.id }) }, 'Yellow card'), h('button', { class: 'btn sm', title: 'Red', onclick: () => cardModal(tid, 'red', { player: p.id }) }, 'Red card'), h('button', { class: 'btn sm', title: 'Substitute off', onclick: () => subModal(tid, { off: p.id }) }, '⇄'))
       : h('span', { class: 'mut small' }, statusLabel(p)));
 }
 function renderLineups(B) {

@@ -101,6 +101,70 @@ def light(state: Dict[str, Any]) -> Dict[str, Any]:
     return s
 
 
+# ---- overlay layout helpers ------------------------------------------------------------------ #
+CRICKET_LAYOUT_IDS = ["bug", "popup", "l-card"] + [f"p-{k}" for k in
+                      ("testsum", "innsum", "worm", "scorecard", "bowling", "partnership", "fow", "target", "teams", "toss", "result", "overs", "banner", "summary")]
+FOOTBALL_LAYOUT_IDS = ["bug", "tracker", "popup"] + [f"pn-{k}" for k in
+                      ("lineups", "formation_home", "formation_away", "subs_bench", "halftime", "fulltime", "scorers", "timeline", "preview",
+                       "officials", "stats_classic", "stats_bars", "stats_strip", "stat_single", "player_card", "banner")]
+LAYOUT_MIN_W, LAYOUT_MIN_H = 40.0, 24.0
+
+
+def clean_layout(sport: str, raw: Any) -> Dict[str, Any]:
+    """Keep only known boxes with sane numbers. Box = {x, y, w, h[, z]} in 1920x1080 canvas units."""
+    ids = FOOTBALL_LAYOUT_IDS if sport == "football" else CRICKET_LAYOUT_IDS
+    out: Dict[str, Any] = {}
+    if not isinstance(raw, dict):
+        return out
+    if sport == "cricket" and "lower" in raw and "l-card" not in raw:      # id used by the 1.0.0 editor
+        raw = {**raw, "l-card": raw["lower"]}
+    for key in ids:
+        v = raw.get(key)
+        if not isinstance(v, dict):
+            continue
+        try:
+            x, y, w, h = (float(v.get(k)) for k in ("x", "y", "w", "h"))
+        except (TypeError, ValueError):
+            continue
+        if not all(n == n and abs(n) < 100000 for n in (x, y, w, h)):
+            continue
+        w = max(LAYOUT_MIN_W, min(1920.0, w))
+        h = max(LAYOUT_MIN_H, min(1080.0, h))
+        box = {"x": round(max(0.0, min(1920.0 - w, x)), 1), "y": round(max(0.0, min(1080.0 - h, y)), 1), "w": round(w, 1), "h": round(h, 1)}
+        try:
+            z = int(v.get("z", 0))
+        except (TypeError, ValueError):
+            z = 0
+        if z:
+            box["z"] = max(0, min(999, z))
+        out[key] = box
+    return out
+
+
+def demo_sets(sport: str) -> Dict[str, Any]:
+    """Payloads (same shape as the published feed) built from sample matches replayed by the real engines."""
+    from . import demo as D
+    now = now_ms()
+    sets: Dict[str, Any] = {}
+    for kind in D.KINDS[sport]:
+        m = D.build(sport, kind, now)
+        S.normalize_setup(m)
+        st = light(S.derive(m))
+        st["server_time"] = now
+        g = default_graphics(sport)
+        for k in g["panels"]:
+            g["panels"][k] = True
+        if sport == "football":
+            g["card_player"] = {"team": "A", "id": "A9"}
+            g["banner"] = {"text": "Northgate United v Eastport Athletic - League Cup semi-final"}
+        else:
+            g["panels"]["bowler_card"] = False
+            g["banner"] = {"text": "Harbour Hawks v Ridgeway Rovers - live from Riverside Oval"}
+        g["popups_enabled"] = {k: True for k in g["popups_enabled"]}
+        sets[kind] = {"state": st, "graphics": g, "delay": 0}
+    return {"sport": sport, "sets": sets, "ids": FOOTBALL_LAYOUT_IDS if sport == "football" else CRICKET_LAYOUT_IDS}
+
+
 class Hub:
     def __init__(self):
         self.lock = threading.Lock()
@@ -524,43 +588,36 @@ class Handler(BaseHTTPRequestHandler):
                                "output_dir": app.out.base})
         if seg == ["api", "health"]:
             return self._json({"ok": True, "time": now_ms()})
-        # Shared overlay geometry is persisted by the local GoScore server so the
-        # layout editor and /overlay/live (including OBS Browser Sources) use one layout.
-        if len(seg) == 3 and seg[:2] == ["api", "layout"] and seg[2] in ("cricket", "football"):
-            layout_path = os.path.join(store.dir, "overlay_layouts.json")
-            layouts = {}
-            try:
-                with open(layout_path, "r", encoding="utf-8") as fh:
-                    layouts = json.load(fh)
-                if not isinstance(layouts, dict): layouts = {}
-            except (OSError, ValueError):
-                layouts = {}
+        # Overlay layout (boxes placed in the layout editor): one file per install, shared by /overlay/live and OBS.
+        if len(seg) >= 3 and seg[:2] == ["api", "layout"] and seg[2] in ("cricket", "football"):
             sport = seg[2]
+            layout_path = os.path.join(store.dir, "overlay_layouts.json")
+
+            def read_all() -> Dict[str, Any]:
+                try:
+                    with open(layout_path, "r", encoding="utf-8") as fh:
+                        data = json.load(fh)
+                    return data if isinstance(data, dict) else {}
+                except (OSError, ValueError):
+                    return {}
+            if len(seg) == 4 and seg[3] == "demo" and method == "GET":
+                return self._json(demo_sets(sport))
+            if len(seg) != 3:
+                return self._err(404, {"message": "Not found"})
             if method == "GET":
-                return self._json({"sport": sport, "layout": layouts.get(sport, {})})
+                lay = clean_layout(sport, read_all().get(sport, {}))
+                rev = hashlib.sha1(json.dumps(lay, sort_keys=True).encode()).hexdigest()[:16]
+                return self._json({"sport": sport, "layout": lay, "rev": rev})
             if method in ("PUT", "POST"):
                 body = self._body()
-                candidate = body.get("layout", {}) if isinstance(body, dict) else {}
-                if not isinstance(candidate, dict) or len(candidate) > 100:
+                cand = body.get("layout") if isinstance(body, dict) else None
+                if not isinstance(cand, dict):
                     return self._err(400, {"message": "Invalid overlay layout."})
-                clean = {}
-                for key, val in candidate.items():
-                    if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", key) or not isinstance(val, dict):
-                        continue
-                    try:
-                        x, y = float(val.get("x", 0)), float(val.get("y", 0))
-                        w, h = float(val.get("w", 0)), float(val.get("h", 0))
-                    except (TypeError, ValueError):
-                        continue
-                    if all(map(lambda n: n == n and abs(n) < 10000, (x,y,w,h))) and 40 <= w <= 1920 and 24 <= h <= 1080:
-                        clean[key] = {"x": max(0, min(1920-w, x)), "y": max(0, min(1080-h, y)), "w": w, "h": h}
-                layouts[sport] = clean
-                os.makedirs(store.dir, exist_ok=True)
-                tmp = layout_path + ".tmp"
-                with open(tmp, "w", encoding="utf-8") as fh:
-                    json.dump(layouts, fh, separators=(",", ":"))
-                os.replace(tmp, layout_path)
-                return self._json({"ok": True, "sport": sport, "layout": clean})
+                lay = clean_layout(sport, cand)
+                allv = read_all()
+                allv[sport] = lay
+                atomic_write(layout_path, json.dumps(allv, separators=(",", ":")))
+                return self._json({"ok": True, "sport": sport, "layout": lay})
             return self._err(405, {"message": "Method not allowed"})
         if seg == ["api", "logos"] and method == "POST":
             body = self._body()

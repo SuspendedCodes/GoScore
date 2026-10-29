@@ -29,8 +29,8 @@ This archive does **not** contain a precompiled Windows `.exe`. The current buil
 After the workflow passes on `main`, create and push a version tag from a local Git terminal:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
 The tag triggers the Windows build and attaches `GoScore.exe` to the GitHub Release. Do not publish the release as stable until you have downloaded the EXE and tested it on Windows with OBS.

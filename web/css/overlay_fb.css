@@ -129,9 +129,7 @@ body.solo #popup{left:0;right:auto;top:0;bottom:auto;width:1100px;height:420px;a
 .dot2 .up{color:#51cf66;font-style:normal;font-size:22px}
 .dot2{transition:left .5s,top .5s}
 
-/* Keep native panel dimensions intact; layout geometry scales the full graphic uniformly. */
-.pn{box-sizing:border-box}
-
-/* Explicit editor mode exposes hidden graphics as selectable objects. */
-body.gs-layout-edit .pn, body.gs-layout-edit #bug, body.gs-layout-edit #popup, body.gs-layout-edit #tracker, body.gs-layout-edit #lower { pointer-events:auto !important; opacity:.82 !important; transform:none !important; }
-body.gs-layout-edit .pn.show { opacity:1 !important; }
+/* Layout boxes (layout-engine.js): inside a placed box the card is stretched and its content scaled to fit. */
+.pn[data-gs] .strip,.pn[data-gs] .single,.pn[data-gs] .pc,.pn[data-gs] .bn{height:100%;box-sizing:border-box}
+.pn[data-gs] .bn{display:flex;align-items:center;justify-content:center}
+.pn[data-gs] .pitchwrap{display:flex;flex-direction:column;height:100%}.pn[data-gs] .pitchwrap .pitch{flex:1;min-height:560px;height:auto}

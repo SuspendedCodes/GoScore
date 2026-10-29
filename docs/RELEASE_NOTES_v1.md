@@ -5,7 +5,7 @@ GoScore v1.0 brings cricket scoring, football match management, and OBS graphics
 ## Changes in this release
 
 - Player-name slots in the cricket scorebug are transparent/blank while no batter or bowler is selected. Dash placeholders are removed; the space remains reserved to avoid layout shifts.
-- Application version is now 1.0.0.
+- Application version is now 1.0.1 (hotfix: overlay layout editor rewrite, see CHANGELOG.md).
 - Windows desktop launcher build files are included.
 
 ## Before a live broadcast

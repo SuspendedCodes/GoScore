@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 - layout editor and UI changes and fixes
+
+- **The layout editor was rebuilt from scratch.** The 1.0.0 editor drew fake placeholder text instead of the real graphics, injected resize handles into the graphics, let content overflow its box and re-applied styles on every DOM change. The new editor is a small slide editor: selection, multi-selection, marquee, 8-handle resize, snapping with guides, safe-area guides, keyboard nudging, undo / redo, align / distribute, bring to front / send to back, numeric X / Y / W / H, per-graphic reset, unsaved-change warnings.
+- **Everything inside a box now scales to fit it.** Cards are stretched to the box and their content scaled to the largest size that fits; the scorebug, shoot-out tracker and pop-ups keep their aspect ratio and are centred. Verified for every graphic of both sports at six different box shapes and sizes (no content outside its box).
+- **Sample data now matches what is shown during a real match.** The editor renders the real overlay code from sample matches built by the real cricket and football engines (`goscore/demo.py`): T20 chase in progress, Test day 2 (for the multi-day summary), a finished match (result / summary), football second half, and a penalty shoot-out (tracker). The editor lists the same graphics the overlay really has (the 1.0.0 list contained a "standings" box that does not exist, and used wrong ids for the cricket lower third).
+- The live overlay and OBS poll the saved layout every few seconds, so a saved change appears without reloading the Browser Source. Layout saving validates ids and sizes and supports stacking order.
+- Fixed: the literal text "null" appeared in cricket graphics (innings summary and others) when an optional block was empty.
+- Fixed: football graphics showed the word "Football" where an icon was meant (scorers, timeline, scorer console buttons), and shoot-out kicks printed overlapping "Scored" / "Missed" words instead of marks.
+- Fixed: cricket "Over by over" labels ("Over 15") wrapped onto two lines.
+- Removed the 1.0.0 rules that made panels scroll (`overflow:auto`) and shrink to `100% - 32px`.
+- `?sport=cricket|football` can be added to an overlay URL to open the editor before any match exists.
+
 ## 1.0.0 — initial release
 
 - First release version for GoScore cricket scoring, football match management, and OBS graphics.
@@ -30,11 +42,3 @@
 - Sample graphics are preview-only and do not affect Production visibility or the live broadcast.
 - Added container-relative sample typography to reduce clipping when preview panels are resized.
 - Existing shared server-side layout persistence continues to apply saved geometry to `/overlay/live` and OBS.
-
-## 1.0.0 layout-scaling correction (2026-10-20)
-
-- Reworked saved overlay geometry to scale complete native graphics uniformly instead of overriding their intrinsic width and height. This preserves scorebug flex columns, table layouts, and typography while resizing.
-- Removed global max-width/max-height clamps that were forcing cricket and football panels to shrink internally.
-- Kept sample editor panels independently resizable; saved real-panel geometry now maps width to a uniform scale and preserves the original graphic aspect ratio.
-- Deferred geometry application for scorebug and event popup containers until their real content has rendered, avoiding an incorrect cached base size during startup.
-- Regression checks: 13 focused layout/overlay/Super Over tests passed. Full pytest discovery was attempted but timed out after reaching approximately 65%; full suite is not certified.

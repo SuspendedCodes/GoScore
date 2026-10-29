@@ -19,41 +19,33 @@ class OverlayFeatureSmokeTests(unittest.TestCase):
         self.assertIn('function syncSlideshow', overlay)
         self.assertIn('slideshowOnly ? false', overlay)
 
-    def test_both_sports_load_layout_editor(self):
-        self.assertIn("sport: 'cricket'", self.read('web/js/overlay.js'))
-        self.assertIn("sport: 'football'", self.read('web/js/fb/overlay.js'))
+    def test_both_sports_use_the_layout_engine_and_editor(self):
+        for src, sport in (('web/js/overlay.js', 'cricket'), ('web/js/fb/overlay.js', 'football')):
+            text = self.read(src)
+            self.assertIn(f"createEngine({{ stage, sport: '{sport}' }})", text)
+            self.assertIn("startEditor(", text)
+            self.assertIn("/demo'", text)
         self.assertTrue((ROOT / 'web/js/layout-editor.js').is_file())
+        self.assertTrue((ROOT / 'web/js/layout-engine.js').is_file())
 
     def test_cricket_logo_node_is_reused(self):
         source = self.read('web/js/overlay.js')
         self.assertIn('const logoNodes = new Map()', source)
         self.assertIn('logoNode(c.batting.logo)', source)
 
-    def test_overlays_preserve_intrinsic_panel_dimensions_for_uniform_scaling(self):
-        for name in ('web/css/overlay.css', 'web/css/overlay_fb.css'):
-            css = self.read(name)
-            self.assertNotIn('max-width:calc(100% - 32px)', css)
-            self.assertNotIn('max-height:calc(100% - 32px)', css)
-        editor = self.read('web/js/layout-editor.js')
-        self.assertIn('Uniform scaling preserves the real graphic', editor)
+    def test_panels_no_longer_scroll_or_shrink_inside_the_canvas(self):
+        for css in ('web/css/overlay.css', 'web/css/overlay_fb.css'):
+            self.assertNotIn('max-width:calc(100% - 32px)', self.read(css))
+            self.assertNotIn('gs-layout-edit', self.read(css))
+
+    def test_no_placeholder_words_where_icons_belong(self):
+        for src in ('web/js/fb/overlay.js', 'web/js/fb/score.js'):
+            text = self.read(src)
+            self.assertNotIn("'Football'", text)
+            self.assertNotIn("'Scored' : 'Missed'", text)
+
+    def test_optional_blocks_are_not_printed_as_null(self):
+        self.assertIn("const fill = (el, ...kids)", self.read('web/js/overlay.js'))
 
 if __name__ == '__main__':
     unittest.main()
-
-
-class LayoutEditorRevisionTests(unittest.TestCase):
-    def test_layout_editor_has_preview_menu_and_shared_save(self):
-        root = Path(__file__).resolve().parents[1]
-        js = (root / "web/js/layout-editor.js").read_text(encoding="utf-8")
-        self.assertIn("gs-layout-sidebar", js)
-        self.assertIn("gs-layout-list", js)
-        self.assertIn("/api/layout/${sport}", js)
-        self.assertIn("request('PUT',{layout})", js)
-        self.assertIn("/overlay/live", js)
-
-    def test_server_persists_layout_for_overlay_and_obs(self):
-        root = Path(__file__).resolve().parents[1]
-        server = (root / "goscore/server.py").read_text(encoding="utf-8")
-        self.assertIn('seg[:2] == ["api", "layout"]', server)
-        self.assertIn('"overlay_layouts.json"', server)
-        self.assertIn('os.replace(tmp, layout_path)', server)

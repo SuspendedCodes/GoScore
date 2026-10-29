@@ -1,6 +1,6 @@
 // OBS overlay renderer. Data comes from the *published* feed (hold / delay aware).
 import { h, Live, matchIdFromPath } from '../common.js';
-import { installLayoutEditor } from '../layout-editor.js';
+import { createEngine } from '../layout-engine.js';
 import { clockInfo, startingXI, bench, formationRows, pitchPlayers, colorText, pl } from './fbcommon.js';
 
 const id = matchIdFromPath();
@@ -39,29 +39,42 @@ function layoutSolo() {
   stage.style.transform = `translate(${ox}px,${oy}px) scale(${s})`;
 }
 addEventListener('resize', fit); fit();
-installLayoutEditor({ stage, sport: 'football', selector: '#bug, #tracker, #popup, #lower, .pn' });
+// Saved layout boxes (see layout-engine.js). Individual-panel URLs (?panel=) size themselves, so they ignore the layout.
+const edit = qs.get('edit') === '1';
+const layout = solo ? null : createEngine({ stage, sport: 'football' });
+if (layout && !edit) layout.poll();
+const managed = (k) => !!(layout && layout.boxes.has(k));
 if (solo) setInterval(layoutSolo, 250);
 const $ = (s) => document.getElementById(s);
 
 let S = null, G = null, skew = 0, delay = 0, firstPayload = true, popTimer = null;
 const seenTl = new Set(); let seenPopup = null; const queue = []; let showing = false;
 
-new Live(id, 'pub', (payload) => {
+function loadPayload(payload) {
   S = payload.state; G = payload.graphics; delay = payload.delay || 0; skew = (S.server_time || Date.now()) - Date.now();
   stage.style.setProperty('--ca', S.teams.A.color); stage.style.setProperty('--cb', S.teams.B.color);
   stage.style.setProperty('--ta', S.teams.A.color2 || colorText(S.teams.A.color)); stage.style.setProperty('--tb', S.teams.B.color2 || colorText(S.teams.B.color));
+  return payload;
+}
+function onPayload(payload) {
+  loadPayload(payload);
   if (only.includes('bug')) renderBug();
   if (only.includes('tracker')) renderTracker();
   if (only.includes('panels')) { resetSlideshowTimer(); renderPanels(); }
   if (only.includes('popups')) handlePopups();
   firstPayload = false;
-}, () => {}, { releaseWhenHidden: false, stream: false, pollMs: 1500 });
+}
+if (!edit) new Live(id, 'pub', onPayload, () => {}, { releaseWhenHidden: false, stream: false, pollMs: 1500 });
+else runEditor();
 setInterval(() => { if (S) tickClock(); }, 200);
 
 // ------------------------------------------------------------- helpers
 const surname = (p) => { const parts = (p.name || '').trim().split(/\s+/); return parts.length > 1 ? parts.slice(1).join(' ') : parts[0]; };
 const given = (p) => { const parts = (p.name || '').trim().split(/\s+/); return parts.length > 1 ? parts[0] : ''; };
 const nameEl = (p) => h('span', { class: 'pname' }, given(p) ? h('span', { class: 'gn' }, given(p) + ' ') : null, h('span', { class: 'sn' }, surname(p).toUpperCase()));
+const BALL_PATH = 'M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm76.52,147.42H170.9l-9.26-12.76,12.63-36.78,15-4.89,26.24,20.13A87.38,87.38,0,0,1,204.52,171.42Zm-164-34.3L66.71,117l15,4.89,12.63,36.78L85.1,171.42H51.48A87.38,87.38,0,0,1,40.47,137.12Zm10-50.64,5.51,18.6L40.71,116.77A87.33,87.33,0,0,1,50.43,86.48ZM109,152,97.54,118.65,128,97.71l30.46,20.94L147,152Zm91.07-46.92,5.51-18.6a87.33,87.33,0,0,1,9.72,30.29Zm-6.2-35.38-9.51,32.08-15.07,4.89L136,83.79V68.21l29.09-20A88.58,88.58,0,0,1,193.86,69.7ZM146.07,41.87,128,54.29,109.93,41.87a88.24,88.24,0,0,1,36.14,0ZM90.91,48.21l29.09,20V83.79L86.72,106.67l-15.07-4.89L62.14,69.7A88.58,88.58,0,0,1,90.91,48.21ZM63.15,187.42H83.52l7.17,20.27A88.4,88.4,0,0,1,63.15,187.42ZM110,214.13,98.12,180.71,107.35,168h41.3l9.23,12.71-11.83,33.42a88,88,0,0,1-36.1,0Zm55.36-6.44,7.17-20.27h20.37A88.4,88.4,0,0,1,165.31,207.69Z';
+// football icon: Phosphor Icons "soccer-ball" (MIT licence, phosphoricons.com)
+function ballIcon() { const NS = 'http://www.w3.org/2000/svg'; const v = document.createElementNS(NS, 'svg'); v.setAttribute('viewBox', '0 0 256 256'); v.setAttribute('width', '1em'); v.setAttribute('height', '1em'); v.setAttribute('fill', 'currentColor'); v.style.verticalAlign = '-.12em'; const p = document.createElementNS(NS, 'path'); p.setAttribute('d', BALL_PATH); v.append(p); return v; }
 const badge = (t) => t.logo ? h('img', { class: 'logo', src: t.logo }) : null;
 const sideColor = (tid) => `var(--c${tid.toLowerCase()})`;
 const cardSq = (c) => h('span', { class: 'csq ' + c });
@@ -71,7 +84,7 @@ function renderBug() {
   const bug = $('bug');
   const visible = G.scorebug || (solo && !follow);
   bug.className = 'pos-' + (G.position || 'top-left') + (visible ? '' : ' off');
-  bug.style.transform = visible && !solo && qs.get('edit') !== '1' ? `scale(${G.scale || 1})` : '';
+  if (!managed('bug')) bug.style.transform = visible && !solo && !edit ? `scale(${G.scale || 1})` : '';
   const A = S.teams.A, B = S.teams.B;
   const reds = (t) => t.red_cards ? h('span', { class: 'reds' }, Array.from({ length: Math.min(t.red_cards, 4) }, () => cardSq('r'))) : null;
   const team = (t, tid) => h('div', { class: 'fb-team ' + tid.toLowerCase(), style: { '--t': t.color, '--tx': t.color2 || colorText(t.color) } }, badge(t), h('span', { class: 'sh' }, t.short), reds(t));
@@ -110,7 +123,7 @@ function renderTracker() {
   if (!on || !so.started) { el.className = ''; el.replaceChildren(); return; }
   const slots = Math.max(5, ...['A', 'B'].map(t => so.kicks.filter(k => k.team === t).length));
   const row = (tid) => { const t = S.teams[tid]; const ks = so.kicks.filter(k => k.team === tid);
-    return h('div', { class: 'tr', style: { '--t': t.color } }, h('span', { class: 'tn' }, t.short), h('div', { class: 'dots' }, Array.from({ length: slots }, (_, i) => { const k = ks[i]; return h('span', { class: 'dot ' + (k ? (k.result === 'scored' ? 'g' : 'x') : '') }, k ? (k.result === 'scored' ? 'Scored' : 'Missed') : ''); })), h('span', { class: 'ts num' }, so.goals[tid])); };
+    return h('div', { class: 'tr', style: { '--t': t.color } }, h('span', { class: 'tn' }, t.short), h('div', { class: 'dots' }, Array.from({ length: slots }, (_, i) => { const k = ks[i]; return h('span', { class: 'dot ' + (k ? (k.result === 'scored' ? 'g' : 'x') : '') }, k ? (k.result === 'scored' ? '\u2713' : '\u2715') : ''); })), h('span', { class: 'ts num' }, so.goals[tid])); };
   el.className = 'show'; el.replaceChildren(h('div', { class: 'fb-so' }, h('div', { class: 'hd' }, 'PENALTY SHOOT-OUT'), row('A'), row('B'), so.decided ? h('div', { class: 'win' }, S.teams[so.winner].name.toUpperCase() + ' WIN') : null));
 }
 
@@ -120,7 +133,7 @@ function showPop(kind, node, ms = 6000) {
   const el = $('popup'); clearTimeout(popTimer);
   const pop = h('div', { class: 'fpop ' + (KIND_STYLE[kind] || 'cus') }, node);
   el.replaceChildren(pop); requestAnimationFrame(() => requestAnimationFrame(() => pop.classList.add('in')));
-  popTimer = setTimeout(() => { pop.classList.remove('in'); setTimeout(() => { if (el.firstChild === pop) el.replaceChildren(); showing = false; next(); }, 450); }, ms);
+  if (Number.isFinite(ms)) popTimer = setTimeout(() => { pop.classList.remove('in'); setTimeout(() => { if (el.firstChild === pop) el.replaceChildren(); showing = false; next(); }, 450); }, ms);
 }
 function next() { if (showing || !queue.length) return; showing = true; const q = queue.shift(); showPop(q.kind, q.node, q.ms); }
 function enqueue(kind, node, ms, priority) { if (priority) queue.unshift({ kind, node, ms }); else queue.push({ kind, node, ms }); while (queue.length > 3) queue.shift(); next(); }
@@ -167,7 +180,7 @@ const hashes = {};
 let slideIndex = 0, slideTimer = null, slideTimerConfig = '';
 const SK = () => qs.get('stat') || G.stat_key;
 function panelEl(key, cls) { let el = document.getElementById('pn-' + key); if (!el) { el = h('div', { id: 'pn-' + key, class: 'pn ' + cls }); (['stat_single', 'stats_strip', 'player_card', 'banner'].includes(key) ? $('lower') : $('panels')).append(el); } return el; }
-function renderPanels() {
+function renderPanels(keys) {
   const cfg = G && G.slideshow || {};
   const slides = (cfg.slides || []).filter(k => PANEL_DEFS[k] && !['stats_strip', 'stat_single', 'player_card', 'banner'].includes(k));
   // When slideshow mode is enabled, keep the rotating panels off the combined overlay.
@@ -179,6 +192,7 @@ function renderPanels() {
   const activeSlide = cfg.enabled && slides.length ? slides[slideIndex % slides.length] : null;
   for (const [key, def] of Object.entries(PANEL_DEFS)) {
     if (solo && key !== solo) continue;
+    if (keys && !keys.includes(key)) continue;
     const el = panelEl(key, def.cls);
     const inSlideshow = !!activeSlide && slides.includes(key);
     const on = solo && !follow ? true : (inSlideshow ? key === activeSlide : (!cfg.enabled || !slides.length) && !!G.panels[key]);
@@ -232,17 +246,17 @@ function resultCard(title) {
   return h('div', {}, head2(title, [S.competition, S.venue].filter(Boolean).join(' · ')),
     h('div', { class: 'rc' }, teamHead(A, 'A'), h('div', { class: 'big num' }, `${S.score.A} – ${S.score.B}`), teamHead(B, 'B', true)),
     S.shootout.started ? h('div', { class: 'note' }, `${S.teams[S.shootout.winner || 'A'].short} won ${Math.max(S.shootout.goals.A, S.shootout.goals.B)}-${Math.min(S.shootout.goals.A, S.shootout.goals.B)} on penalties`) : (S.aggregate.on ? h('div', { class: 'note' }, `Aggregate ${S.aggregate.A} – ${S.aggregate.B}`) : null),
-    h('div', { class: 'scs' }, scorersCol('A'), h('div', { class: 'ball' }, 'Football'), scorersCol('B', true)),
+    h('div', { class: 'scs' }, scorersCol('A'), h('div', { class: 'ball' }, ballIcon()), scorersCol('B', true)),
     rows.length ? h('div', { class: 'mini' }, ...rows.map(r => h('div', { class: 'mr' }, h('b', { class: 'num' }, r.dA), h('span', {}, r.label.toUpperCase()), h('b', { class: 'num' }, r.dB)))) : null,
     S.result.final ? h('div', { class: 'note' }, S.result.text) : null, S.motm && title.startsWith('FULL') ? h('div', { class: 'note' }, 'MAN OF THE MATCH  ', h('b', {}, S.motm.toUpperCase())) : null);
 }
 PANEL_DEFS.halftime = { cls: 'p-card', dep: () => [S.score, S.scorers, S.stats.rows], render: () => resultCard('HALF-TIME') };
 PANEL_DEFS.fulltime = { cls: 'p-card', dep: () => [S.score, S.scorers, S.stats.rows, S.result, S.motm, S.shootout.goals], render: () => resultCard('FULL-TIME') };
-PANEL_DEFS.scorers = { cls: 'p-card', dep: () => [S.score, S.scorers], render: () => h('div', {}, head2('GOALS'), h('div', { class: 'rc' }, teamHead(S.teams.A, 'A'), h('div', { class: 'big num' }, `${S.score.A} – ${S.score.B}`), teamHead(S.teams.B, 'B', true)), h('div', { class: 'scs' }, scorersCol('A'), h('div', { class: 'ball' }, 'Football'), scorersCol('B', true))) };
+PANEL_DEFS.scorers = { cls: 'p-card', dep: () => [S.score, S.scorers], render: () => h('div', {}, head2('GOALS'), h('div', { class: 'rc' }, teamHead(S.teams.A, 'A'), h('div', { class: 'big num' }, `${S.score.A} – ${S.score.B}`), teamHead(S.teams.B, 'B', true)), h('div', { class: 'scs' }, scorersCol('A'), h('div', { class: 'ball' }, ballIcon()), scorersCol('B', true))) };
 PANEL_DEFS.timeline = { cls: 'p-time', dep: () => S.timeline.length + ':' + S.timeline.filter(r => r.cancelled).length, render: () => {
   const rows = S.timeline.filter(r => ['goal', 'card', 'sub', 'goal_cancel', 'var', 'penalty_miss'].includes(r.type)).slice(-12);
   return h('div', {}, head2('MATCH EVENTS', `${S.teams.A.short} ${S.score.A} – ${S.score.B} ${S.teams.B.short}`), h('div', { class: 'tlist' }, rows.length ? rows.map(r => h('div', { class: 'te ' + (r.team || '') + (r.cancelled ? ' x' : ''), style: { '--t': r.team ? S.teams[r.team].color : '#667' } },
-    h('span', { class: 'tm num' }, r.label), h('span', { class: 'ic' }, r.type === 'goal' ? 'Football' : r.type === 'card' ? cardSq(r.color === 'yellow' ? 'y' : 'r') : r.type === 'sub' ? '⇄' : r.type === 'var' ? 'VAR' : r.type === 'goal_cancel' ? 'Disallow' : '•'),
+    h('span', { class: 'tm num' }, r.label), h('span', { class: 'ic' }, r.type === 'goal' ? ballIcon() : r.type === 'card' ? cardSq(r.color === 'yellow' ? 'y' : 'r') : r.type === 'sub' ? '⇄' : r.type === 'var' ? 'VAR' : r.type === 'goal_cancel' ? 'Disallow' : '•'),
     h('span', { class: 'tx' }, r.type === 'sub' ? [h('b', {}, r.on_name), ' ▲  ', r.off_name, ' ▼'] : r.type === 'card' ? r.text : r.text), h('span', { class: 'tmn' }, r.team ? S.teams[r.team].short : ''))) : [h('div', { class: 'none' }, 'No events yet')])); } };
 const form = (s) => (s || '').split(/[\s,-]+/).filter(Boolean).slice(-5);
 PANEL_DEFS.preview = { cls: 'p-card', dep: () => [S.form, S.h2h, S.officials, S.kickoff], render: () => {
@@ -304,3 +318,24 @@ PANEL_DEFS.player_card = { cls: 'p-pcard', dep: () => [S.teams.A.players, S.team
     h('div', { class: 'stats' }, keys.filter(k => p.stats[k]).map(k => h('div', { class: 'st' }, h('b', { class: 'num' }, p.stats[k].d), h('span', {}, lab[k] || k.toUpperCase())))));
 } };
 PANEL_DEFS.banner = { cls: 'p-banner', dep: () => G.banner, render: () => h('div', { class: 'bn' }, h('span', {}, (G.banner.text || '').toUpperCase())) };
+
+// ------------------------------------------------------------- layout editor
+// Real panels, rendered from sample matches replayed by the real engines (goscore/demo.py): a second-half match for
+// everything except the shoot-out tracker, which needs a match that is in a shoot-out.
+async function runEditor() {
+  const d = await (await fetch('/api/layout/football/demo', { cache: 'no-store' })).json();
+  const live = d.sets.live, so = d.sets.shootout;
+  onPayload(live);
+  loadPayload(so); renderTracker(); loadPayload(live);
+  const row = [...live.state.timeline].reverse().find((r) => r.type === 'goal' && !r.cancelled);
+  const pop = row && popFor(row);
+  if (pop) showPop(pop[0], pop[1], Infinity);
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const { startEditor } = await import('../layout-editor.js');
+  startEditor({ stage, sport: 'football', engine: layout, ids: d.ids, labels: FOOTBALL_LABELS });
+}
+const FOOTBALL_LABELS = { bug: 'Scorebug', tracker: 'Shoot-out tracker', popup: 'Event pop-up', 'pn-lineups': 'Line-ups', 'pn-formation_home': 'Formation (home)',
+  'pn-formation_away': 'Formation (away)', 'pn-subs_bench': 'Substitutes', 'pn-halftime': 'Half-time card', 'pn-fulltime': 'Full-time card', 'pn-scorers': 'Goals',
+  'pn-timeline': 'Match events', 'pn-preview': 'Match preview', 'pn-officials': 'Match officials', 'pn-stats_classic': 'Statistics (classic)', 'pn-stats_bars': 'Statistics (bars)',
+  'pn-stats_strip': 'Statistics (strip)', 'pn-stat_single': 'Single statistic', 'pn-player_card': 'Player card', 'pn-banner': 'Banner' };

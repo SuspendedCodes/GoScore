@@ -12,5 +12,8 @@ for (let i = 0; i < 20; i++) {          // OBS may start before the server: keep
   } catch { /* server not up yet */ }
   await new Promise(res => setTimeout(res, 1000));
 }
+// ?sport=cricket|football picks the module directly (used by the layout editor when no match exists yet)
+const forced = new URLSearchParams(location.search).get('sport');
+if (forced === 'cricket' || forced === 'football') sport = forced;
 document.documentElement.dataset.sport = sport;
 await import(sport === 'football' ? `/static/js/fb/${page}.js` : `/static/js/${page}.js`);
